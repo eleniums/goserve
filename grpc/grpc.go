@@ -10,6 +10,7 @@ import (
 	grpc_middleware "github.com/grpc-ecosystem/go-grpc-middleware"
 )
 
+// GRPC contains properties needed to host a gRPC server.
 type GRPC struct {
 	// Server is used to register server handlers.
 	Server *grpc.Server
@@ -33,6 +34,7 @@ type GRPC struct {
 	MaxRecvMsgSize int
 }
 
+// New will create a GRPC instance with default values.
 func New() *GRPC {
 	return &GRPC{
 		MaxSendMsgSize: math.MaxInt32,
@@ -40,10 +42,12 @@ func New() *GRPC {
 	}
 }
 
-func (g *GRPC) Serve(l net.Listener) error {
-	return g.Server.Serve(l)
+// Serve will accept incoming connections on the given listener.
+func (g *GRPC) Serve(lis net.Listener) error {
+	return g.Server.Serve(lis)
 }
 
+// Initialize will create a gRPC server based on the properties already set.
 func (g *GRPC) Initialize() {
 	opt := []grpc.ServerOption{
 		grpc.MaxRecvMsgSize(g.MaxRecvMsgSize),
