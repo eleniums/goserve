@@ -6,6 +6,8 @@ import (
 	"net"
 
 	"google.golang.org/grpc"
+
+	grpc_middleware "github.com/grpc-ecosystem/go-grpc-middleware"
 )
 
 type GRPC struct {
@@ -46,6 +48,8 @@ func (g *GRPC) Initialize() {
 	opt := []grpc.ServerOption{
 		grpc.MaxRecvMsgSize(g.MaxRecvMsgSize),
 		grpc.MaxSendMsgSize(g.MaxSendMsgSize),
+		grpc.UnaryInterceptor(grpc_middleware.ChainUnaryServer(g.UnaryInterceptors...)),
+		grpc.StreamInterceptor(grpc_middleware.ChainStreamServer(g.StreamInterceptors...)),
 	}
 
 	opt = append(opt, g.Options...)
