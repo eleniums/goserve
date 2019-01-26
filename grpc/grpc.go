@@ -15,8 +15,8 @@ type GRPC struct {
 	// TLSConfig stores the TLS configuration if a secure endpoint is desired.
 	TLSConfig *tls.Config
 
-	// Opt is an array of server options for customizing the server further.
-	Opt []grpc.ServerOption
+	// Options is an array of server options for customizing the server further.
+	Options []grpc.ServerOption
 
 	// UnaryInterceptors is an array of unary interceptors. They will be executed in order, from first to last.
 	UnaryInterceptors []grpc.UnaryServerInterceptor
@@ -47,6 +47,8 @@ func (g *GRPC) Initialize() {
 		grpc.MaxRecvMsgSize(g.MaxRecvMsgSize),
 		grpc.MaxSendMsgSize(g.MaxSendMsgSize),
 	}
+
+	opt = append(opt, g.Options...)
 
 	g.Server = grpc.NewServer(opt...)
 }
