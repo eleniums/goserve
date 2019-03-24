@@ -6,6 +6,7 @@ import (
 	"net"
 
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials"
 
 	grpc_middleware "github.com/grpc-ecosystem/go-grpc-middleware"
 )
@@ -54,6 +55,12 @@ func (g *GRPC) Initialize() {
 		grpc.MaxSendMsgSize(g.MaxSendMsgSize),
 		grpc.UnaryInterceptor(grpc_middleware.ChainUnaryServer(g.UnaryInterceptors...)),
 		grpc.StreamInterceptor(grpc_middleware.ChainStreamServer(g.StreamInterceptors...)),
+	}
+
+	// determine if TLS should be used
+	if g.TLSConfig != nil {
+		creds := credentials.NewTLS(g.TLSConfig)
+		opt = append(opt, grpc.Creds(creds))
 	}
 
 	opt = append(opt, g.Options...)
