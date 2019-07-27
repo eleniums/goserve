@@ -2,8 +2,6 @@ package grpc
 
 import (
 	"crypto/tls"
-	"math"
-	"net"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
@@ -11,10 +9,10 @@ import (
 	grpc_middleware "github.com/grpc-ecosystem/go-grpc-middleware"
 )
 
-// GRPC contains properties needed to host a gRPC server.
-type GRPC struct {
-	// Server is used to register server handlers.
-	Server *grpc.Server
+// Builder is used to construct a gRPC server.
+type Builder struct {
+	// Servers is used to register server handlers.
+	Servers map[interface{}]interface{}
 
 	// TLSConfig stores the TLS configuration if a secure endpoint is desired.
 	TLSConfig *tls.Config
@@ -27,43 +25,55 @@ type GRPC struct {
 
 	// StreamInterceptors is an array of stream interceptors. They will be executed in order, from first to last.
 	StreamInterceptors []grpc.StreamServerInterceptor
-
-	// MaxSendMsgSize will change the size of the message that can be sent from the service.
-	MaxSendMsgSize int
-
-	// MaxRecvMsgSize will change the size of the message that can be received by the service.
-	MaxRecvMsgSize int
 }
 
 // New will create a GRPC instance with default values.
-func New() *GRPC {
-	return &GRPC{
-		MaxSendMsgSize: math.MaxInt32,
-		MaxRecvMsgSize: math.MaxInt32,
-	}
+func New() *Builder {
+	return &Builder{}
 }
 
-// Serve will accept incoming connections on the given listener.
-func (g *GRPC) Serve(lis net.Listener) error {
-	return g.Server.Serve(lis)
+func (b *Builder) Build() *grpc.Server {
+	if len(b.UnaryInterceptors) > 0 {
+		b.Options = append(b.Options, grpc.UnaryInterceptor(grpc_middleware.ChainUnaryServer(b.UnaryInterceptors...)))
+	}
+
+	if len(b.StreamInterceptors) > 0 {
+		b.Options = append(b.Options, grpc.StreamInterceptor(grpc_middleware.ChainStreamServer(b.StreamInterceptors...)))
+	}
+
+	s := grpc.NewServer(b.Options...)
+	// TODO: register grpc servers
+
+	return s
 }
 
-// Initialize will create a gRPC server based on the properties already set.
-func (g *GRPC) Initialize() {
-	opt := []grpc.ServerOption{
-		grpc.MaxRecvMsgSize(g.MaxRecvMsgSize),
-		grpc.MaxSendMsgSize(g.MaxSendMsgSize),
-		grpc.UnaryInterceptor(grpc_middleware.ChainUnaryServer(g.UnaryInterceptors...)),
-		grpc.StreamInterceptor(grpc_middleware.ChainStreamServer(g.StreamInterceptors...)),
-	}
+func (b *Builder) Register(registerFunc interface{}, server interface{}) *Builder {
+	return b
+}
 
-	// determine if TLS should be used
-	if g.TLSConfig != nil {
-		creds := credentials.NewTLS(g.TLSConfig)
-		opt = append(opt, grpc.Creds(creds))
-	}
+func (b *Builder) WithTLS(config *tls.Config) *Builder {
+	b.TLSConfig = config
+	creds := credentials.NewTLS(config)
+	b.Options = append(b.Options, grpc.Creds(creds))
+	return b
+}
 
-	opt = append(opt, g.Options...)
+func (b *Builder) WithUnaryInterceptor(interceptor grpc.UnaryServerInterceptor) *Builder {
+	b.UnaryInterceptors = append(b.UnaryInterceptors, interceptor)
+	return b
+}
 
-	g.Server = grpc.NewServer(opt...)
+func (b *Builder) WithStreamInterceptor(interceptor grpc.StreamServerInterceptor) *Builder {
+	b.StreamInterceptors = append(b.StreamInterceptors, interceptor)
+	return b
+}
+
+func (b *Builder) WithMaxRecvMsgSize(size int) *Builder {
+	b.Options = append(b.Options, grpc.MaxRecvMsgSize(size))
+	return b
+}
+
+func (b *Builder) WithMaxSendMsgSize(size int) *Builder {
+	b.Options = append(b.Options, grpc.MaxSendMsgSize(size))
+	return b
 }
