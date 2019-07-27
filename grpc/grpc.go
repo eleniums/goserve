@@ -2,6 +2,7 @@ package grpc
 
 import (
 	"crypto/tls"
+	"reflect"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
@@ -42,12 +43,26 @@ func (b *Builder) Build() *grpc.Server {
 	}
 
 	s := grpc.NewServer(b.Options...)
-	// TODO: register grpc servers
-	// for k, v := range b.Servers {
-	// 	reflectFunc := reflect.TypeOf(k)
-	// 	server := reflect.TypeOf(v)
-	// 	// TODO: how to call a reflected method?
-	// }
+
+	for k, v := range b.Servers {
+		registerFunc := reflect.ValueOf(k)
+		if registerFunc.Kind() != reflect.Func {
+			return nil
+		}
+
+		server := reflect.ValueOf(v)
+		if server.Kind() != registerFunc.Type().In(1).Kind() {
+			return nil
+		}
+
+		result := registerFunc.Call([]reflect.Value{
+			reflect.ValueOf(s),
+			server,
+		})
+		if len(result) > 0 {
+			return nil
+		}
+	}
 
 	return s
 }
