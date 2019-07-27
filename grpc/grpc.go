@@ -2,6 +2,7 @@ package grpc
 
 import (
 	"crypto/tls"
+	"fmt"
 	"reflect"
 
 	"google.golang.org/grpc"
@@ -45,21 +46,8 @@ func (b *Builder) Build() *grpc.Server {
 	s := grpc.NewServer(b.Options...)
 
 	for k, v := range b.Servers {
-		registerFunc := reflect.ValueOf(k)
-		if registerFunc.Kind() != reflect.Func {
-			return nil
-		}
-
-		server := reflect.ValueOf(v)
-		if server.Kind() != registerFunc.Type().In(1).Kind() {
-			return nil
-		}
-
-		result := registerFunc.Call([]reflect.Value{
-			reflect.ValueOf(s),
-			server,
-		})
-		if len(result) > 0 {
+		err := registerServer(s, k, v)
+		if err != nil {
 			return nil
 		}
 	}
@@ -97,4 +85,26 @@ func (b *Builder) WithMaxRecvMsgSize(size int) *Builder {
 func (b *Builder) WithMaxSendMsgSize(size int) *Builder {
 	b.Options = append(b.Options, grpc.MaxSendMsgSize(size))
 	return b
+}
+
+func registerServer(s *grpc.Server, registerFunc interface{}, server interface{}) error {
+	registerFuncValue := reflect.ValueOf(registerFunc)
+	if registerFuncValue.Kind() != reflect.Func {
+		return fmt.Errorf("registerFunc is not a grpc registration function: %v", registerFuncValue.Kind())
+	}
+
+	serverValue := reflect.ValueOf(server)
+	if serverValue.Kind() != registerFuncValue.Type().In(1).Kind() {
+		return fmt.Errorf("Incorrect type for server. Expected: %v - Received: %v", registerFuncValue.Type().In(1).Kind(), serverValue.Kind())
+	}
+
+	result := registerFuncValue.Call([]reflect.Value{
+		reflect.ValueOf(s),
+		serverValue,
+	})
+	if len(result) > 0 {
+		return fmt.Errorf("No result was expected from registration, but received: %v", result)
+	}
+
+	return nil
 }
