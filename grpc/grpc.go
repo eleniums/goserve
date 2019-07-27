@@ -43,11 +43,17 @@ func (b *Builder) Build() *grpc.Server {
 
 	s := grpc.NewServer(b.Options...)
 	// TODO: register grpc servers
+	// for k, v := range b.Servers {
+	// 	reflectFunc := reflect.TypeOf(k)
+	// 	server := reflect.TypeOf(v)
+	// 	// TODO: how to call a reflected method?
+	// }
 
 	return s
 }
 
 func (b *Builder) Register(registerFunc interface{}, server interface{}) *Builder {
+	b.Servers[registerFunc] = server
 	return b
 }
 
