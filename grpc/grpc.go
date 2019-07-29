@@ -11,6 +11,14 @@ import (
 	grpc_middleware "github.com/grpc-ecosystem/go-grpc-middleware"
 )
 
+const (
+	// DefaultMaxSendMsgSize is the default max send message size, per gRPC
+	DefaultMaxSendMsgSize = 1024 * 1024 * 4
+
+	// DefaultMaxRecvMsgSize is the default max receive message size, per gRPC
+	DefaultMaxRecvMsgSize = 1024 * 1024 * 4
+)
+
 // Builder is used to construct a gRPC server.
 type Builder struct {
 	// Servers is used to register server handlers.
