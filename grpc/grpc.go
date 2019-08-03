@@ -22,7 +22,7 @@ const (
 // Builder is used to construct a gRPC server.
 type Builder struct {
 	// Servers is used to register server handlers.
-	Servers map[interface{}]interface{}
+	Servers []Server
 
 	// TLSConfig stores the TLS configuration if a secure endpoint is desired.
 	TLSConfig *tls.Config
@@ -35,6 +35,11 @@ type Builder struct {
 
 	// StreamInterceptors is an array of stream interceptors. They will be executed in order, from first to last.
 	StreamInterceptors []grpc.StreamServerInterceptor
+}
+
+type Server struct {
+	RegisterFunc interface{}
+	Server       interface{}
 }
 
 // New will create a GRPC instance with default values.
@@ -53,8 +58,8 @@ func (b *Builder) Build() *grpc.Server {
 
 	s := grpc.NewServer(b.Options...)
 
-	for k, v := range b.Servers {
-		err := registerServer(s, k, v)
+	for _, v := range b.Servers {
+		err := registerServer(s, v.RegisterFunc, v.Server)
 		if err != nil {
 			return nil
 		}
@@ -64,7 +69,10 @@ func (b *Builder) Build() *grpc.Server {
 }
 
 func (b *Builder) Register(registerFunc interface{}, server interface{}) *Builder {
-	b.Servers[registerFunc] = server
+	b.Servers = append(b.Servers, Server{
+		RegisterFunc: registerFunc,
+		Server:       server,
+	})
 	return b
 }
 
