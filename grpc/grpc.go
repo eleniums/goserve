@@ -61,7 +61,7 @@ func (b *Builder) Build() *grpc.Server {
 	for _, v := range b.Servers {
 		err := registerServer(s, v.RegisterFunc, v.Server)
 		if err != nil {
-			return nil
+			panic(err)
 		}
 	}
 
@@ -105,22 +105,22 @@ func (b *Builder) WithMaxSendMsgSize(size int) *Builder {
 
 func registerServer(s *grpc.Server, registerFunc interface{}, server interface{}) error {
 	registerFuncValue := reflect.ValueOf(registerFunc)
-	if registerFuncValue.Kind() != reflect.Func {
-		return fmt.Errorf("registerFunc is not a grpc registration function: %v", registerFuncValue.Kind())
+	if registerFuncValue.Kind() != reflect.Func ||
+		registerFuncValue.Type().NumIn() != 2 ||
+		registerFuncValue.Type().In(0) != reflect.TypeOf(s) ||
+		registerFuncValue.Type().In(1).Kind() != reflect.Interface {
+		return fmt.Errorf("registerFunc is not a grpc registration function: %v, ex: RegisterSampleServer(s *grpc.Server, srv SampleServer)", registerFuncValue.Type())
 	}
 
 	serverValue := reflect.ValueOf(server)
-	if serverValue.Kind() != registerFuncValue.Type().In(1).Kind() {
-		return fmt.Errorf("Incorrect type for server. Expected: %v - Received: %v", registerFuncValue.Type().In(1).Kind(), serverValue.Kind())
+	if !serverValue.Type().Implements(registerFuncValue.Type().In(1)) {
+		return fmt.Errorf("Incorrect type for server: %v does not implement %v", serverValue.Type(), registerFuncValue.Type().In(1))
 	}
 
-	result := registerFuncValue.Call([]reflect.Value{
+	registerFuncValue.Call([]reflect.Value{
 		reflect.ValueOf(s),
 		serverValue,
 	})
-	if len(result) > 0 {
-		return fmt.Errorf("No result was expected from registration, but received: %v", result)
-	}
 
 	return nil
 }
