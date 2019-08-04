@@ -21,16 +21,9 @@ const (
 
 // Builder is used to construct a gRPC server.
 type Builder struct {
-	// servers is used to register server handlers.
-	servers []server
-
-	// options is an array of server options for customizing the server further.
-	options []grpc.ServerOption
-
-	// unaryInterceptors is an array of unary interceptors. They will be executed in order, from first to last.
-	unaryInterceptors []grpc.UnaryServerInterceptor
-
-	// streamInterceptors is an array of stream interceptors. They will be executed in order, from first to last.
+	servers            []server
+	options            []grpc.ServerOption
+	unaryInterceptors  []grpc.UnaryServerInterceptor
 	streamInterceptors []grpc.StreamServerInterceptor
 }
 
@@ -39,11 +32,12 @@ type server struct {
 	Server       interface{}
 }
 
-// New will create a GRPC instance with default values.
+// New will create a new gRPC server builder.
 func New() *Builder {
 	return &Builder{}
 }
 
+// Build a gRPC server.
 func (b *Builder) Build() *grpc.Server {
 	if len(b.unaryInterceptors) > 0 {
 		b.options = append(b.options, grpc.UnaryInterceptor(grpc_middleware.ChainUnaryServer(b.unaryInterceptors...)))
@@ -65,6 +59,7 @@ func (b *Builder) Build() *grpc.Server {
 	return s
 }
 
+// Register adds a gRPC registration function and an associated server implementation. The registerFunc should be something akin to RegisterSampleServer(s *grpc.Server, srv SampleServer) and srv should be an implementation that satisfies the srv interface in registerFunc.
 func (b *Builder) Register(registerFunc interface{}, srv interface{}) *Builder {
 	var s *grpc.Server
 	registerFuncType := reflect.TypeOf(registerFunc)
@@ -85,32 +80,38 @@ func (b *Builder) Register(registerFunc interface{}, srv interface{}) *Builder {
 	return b
 }
 
+// WithTLS adds configuration to provide secure communications via Transport Layer Security.
 func (b *Builder) WithTLS(config *tls.Config) *Builder {
 	creds := credentials.NewTLS(config)
 	b.options = append(b.options, grpc.Creds(creds))
 	return b
 }
 
+// WithOptions adds additional server options for customizing the server further.
 func (b *Builder) WithOptions(options ...grpc.ServerOption) *Builder {
 	b.options = append(b.options, options...)
 	return b
 }
 
+// WithUnaryInterceptors adds unary interceptors to be used by the service. They will be executed in order, from first to last.
 func (b *Builder) WithUnaryInterceptors(interceptors ...grpc.UnaryServerInterceptor) *Builder {
 	b.unaryInterceptors = append(b.unaryInterceptors, interceptors...)
 	return b
 }
 
+// WithStreamInterceptors adds stream interceptors to be used by the service. They will be executed in order, from first to last.
 func (b *Builder) WithStreamInterceptors(interceptors ...grpc.StreamServerInterceptor) *Builder {
 	b.streamInterceptors = append(b.streamInterceptors, interceptors...)
 	return b
 }
 
+// WithMaxRecvMsgSize will change the size of messages that can be received by the service.
 func (b *Builder) WithMaxRecvMsgSize(size int) *Builder {
 	b.options = append(b.options, grpc.MaxRecvMsgSize(size))
 	return b
 }
 
+// WithMaxSendMsgSize will change the size of messages that can be sent from the service.
 func (b *Builder) WithMaxSendMsgSize(size int) *Builder {
 	b.options = append(b.options, grpc.MaxSendMsgSize(size))
 	return b
