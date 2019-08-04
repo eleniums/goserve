@@ -79,17 +79,18 @@ func (b *Builder) WithTLS(config *tls.Config) *Builder {
 	return b
 }
 
-func (b *Builder) WithOptions(options ...grpc.ServerOption) {
+func (b *Builder) WithOptions(options ...grpc.ServerOption) *Builder {
 	b.options = append(b.options, options...)
-}
-
-func (b *Builder) WithUnaryInterceptor(interceptor grpc.UnaryServerInterceptor) *Builder {
-	b.unaryInterceptors = append(b.unaryInterceptors, interceptor)
 	return b
 }
 
-func (b *Builder) WithStreamInterceptor(interceptor grpc.StreamServerInterceptor) *Builder {
-	b.streamInterceptors = append(b.streamInterceptors, interceptor)
+func (b *Builder) WithUnaryInterceptors(interceptors ...grpc.UnaryServerInterceptor) *Builder {
+	b.unaryInterceptors = append(b.unaryInterceptors, interceptors...)
+	return b
+}
+
+func (b *Builder) WithStreamInterceptors(interceptors ...grpc.StreamServerInterceptor) *Builder {
+	b.streamInterceptors = append(b.streamInterceptors, interceptors...)
 	return b
 }
 
