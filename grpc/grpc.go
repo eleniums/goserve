@@ -79,6 +79,10 @@ func (b *Builder) WithTLS(config *tls.Config) *Builder {
 	return b
 }
 
+func (b *Builder) WithOptions(options ...grpc.ServerOption) {
+	b.options = append(b.options, options...)
+}
+
 func (b *Builder) WithUnaryInterceptor(interceptor grpc.UnaryServerInterceptor) *Builder {
 	b.unaryInterceptors = append(b.unaryInterceptors, interceptor)
 	return b
