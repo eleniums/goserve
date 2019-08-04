@@ -21,23 +21,20 @@ const (
 
 // Builder is used to construct a gRPC server.
 type Builder struct {
-	// Servers is used to register server handlers.
-	Servers []Server
+	// servers is used to register server handlers.
+	servers []server
 
-	// TLSConfig stores the TLS configuration if a secure endpoint is desired.
-	TLSConfig *tls.Config
+	// options is an array of server options for customizing the server further.
+	options []grpc.ServerOption
 
-	// Options is an array of server options for customizing the server further.
-	Options []grpc.ServerOption
+	// unaryInterceptors is an array of unary interceptors. They will be executed in order, from first to last.
+	unaryInterceptors []grpc.UnaryServerInterceptor
 
-	// UnaryInterceptors is an array of unary interceptors. They will be executed in order, from first to last.
-	UnaryInterceptors []grpc.UnaryServerInterceptor
-
-	// StreamInterceptors is an array of stream interceptors. They will be executed in order, from first to last.
-	StreamInterceptors []grpc.StreamServerInterceptor
+	// streamInterceptors is an array of stream interceptors. They will be executed in order, from first to last.
+	streamInterceptors []grpc.StreamServerInterceptor
 }
 
-type Server struct {
+type server struct {
 	RegisterFunc interface{}
 	Server       interface{}
 }
@@ -48,17 +45,17 @@ func New() *Builder {
 }
 
 func (b *Builder) Build() *grpc.Server {
-	if len(b.UnaryInterceptors) > 0 {
-		b.Options = append(b.Options, grpc.UnaryInterceptor(grpc_middleware.ChainUnaryServer(b.UnaryInterceptors...)))
+	if len(b.unaryInterceptors) > 0 {
+		b.options = append(b.options, grpc.UnaryInterceptor(grpc_middleware.ChainUnaryServer(b.unaryInterceptors...)))
 	}
 
-	if len(b.StreamInterceptors) > 0 {
-		b.Options = append(b.Options, grpc.StreamInterceptor(grpc_middleware.ChainStreamServer(b.StreamInterceptors...)))
+	if len(b.streamInterceptors) > 0 {
+		b.options = append(b.options, grpc.StreamInterceptor(grpc_middleware.ChainStreamServer(b.streamInterceptors...)))
 	}
 
-	s := grpc.NewServer(b.Options...)
+	s := grpc.NewServer(b.options...)
 
-	for _, v := range b.Servers {
+	for _, v := range b.servers {
 		err := registerServer(s, v.RegisterFunc, v.Server)
 		if err != nil {
 			panic(err)
@@ -68,38 +65,37 @@ func (b *Builder) Build() *grpc.Server {
 	return s
 }
 
-func (b *Builder) Register(registerFunc interface{}, server interface{}) *Builder {
-	b.Servers = append(b.Servers, Server{
+func (b *Builder) Register(registerFunc interface{}, srv interface{}) *Builder {
+	b.servers = append(b.servers, server{
 		RegisterFunc: registerFunc,
-		Server:       server,
+		Server:       srv,
 	})
 	return b
 }
 
 func (b *Builder) WithTLS(config *tls.Config) *Builder {
-	b.TLSConfig = config
 	creds := credentials.NewTLS(config)
-	b.Options = append(b.Options, grpc.Creds(creds))
+	b.options = append(b.options, grpc.Creds(creds))
 	return b
 }
 
 func (b *Builder) WithUnaryInterceptor(interceptor grpc.UnaryServerInterceptor) *Builder {
-	b.UnaryInterceptors = append(b.UnaryInterceptors, interceptor)
+	b.unaryInterceptors = append(b.unaryInterceptors, interceptor)
 	return b
 }
 
 func (b *Builder) WithStreamInterceptor(interceptor grpc.StreamServerInterceptor) *Builder {
-	b.StreamInterceptors = append(b.StreamInterceptors, interceptor)
+	b.streamInterceptors = append(b.streamInterceptors, interceptor)
 	return b
 }
 
 func (b *Builder) WithMaxRecvMsgSize(size int) *Builder {
-	b.Options = append(b.Options, grpc.MaxRecvMsgSize(size))
+	b.options = append(b.options, grpc.MaxRecvMsgSize(size))
 	return b
 }
 
 func (b *Builder) WithMaxSendMsgSize(size int) *Builder {
-	b.Options = append(b.Options, grpc.MaxSendMsgSize(size))
+	b.options = append(b.options, grpc.MaxSendMsgSize(size))
 	return b
 }
 
