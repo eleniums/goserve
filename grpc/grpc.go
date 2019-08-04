@@ -56,20 +56,32 @@ func (b *Builder) Build() *grpc.Server {
 	s := grpc.NewServer(b.options...)
 
 	for _, v := range b.servers {
-		err := registerServer(s, v.RegisterFunc, v.Server)
-		if err != nil {
-			panic(err)
-		}
+		reflect.ValueOf(v.RegisterFunc).Call([]reflect.Value{
+			reflect.ValueOf(s),
+			reflect.ValueOf(v.Server),
+		})
 	}
 
 	return s
 }
 
 func (b *Builder) Register(registerFunc interface{}, srv interface{}) *Builder {
+	var s *grpc.Server
+	registerFuncType := reflect.TypeOf(registerFunc)
+	if registerFuncType.Kind() != reflect.Func || registerFuncType.NumIn() != 2 || registerFuncType.In(0) != reflect.TypeOf(s) || registerFuncType.In(1).Kind() != reflect.Interface {
+		panic(fmt.Errorf("registerFunc is not a grpc registration function: %v, ex: RegisterSampleServer(s *grpc.Server, srv SampleServer)", registerFuncType))
+	}
+
+	serverType := reflect.TypeOf(srv)
+	if !serverType.Implements(registerFuncType.In(1)) {
+		panic(fmt.Errorf("Incorrect type for server: %v does not implement %v", serverType, registerFuncType.In(1)))
+	}
+
 	b.servers = append(b.servers, server{
 		RegisterFunc: registerFunc,
 		Server:       srv,
 	})
+
 	return b
 }
 
@@ -102,26 +114,4 @@ func (b *Builder) WithMaxRecvMsgSize(size int) *Builder {
 func (b *Builder) WithMaxSendMsgSize(size int) *Builder {
 	b.options = append(b.options, grpc.MaxSendMsgSize(size))
 	return b
-}
-
-func registerServer(s *grpc.Server, registerFunc interface{}, server interface{}) error {
-	registerFuncValue := reflect.ValueOf(registerFunc)
-	if registerFuncValue.Kind() != reflect.Func ||
-		registerFuncValue.Type().NumIn() != 2 ||
-		registerFuncValue.Type().In(0) != reflect.TypeOf(s) ||
-		registerFuncValue.Type().In(1).Kind() != reflect.Interface {
-		return fmt.Errorf("registerFunc is not a grpc registration function: %v, ex: RegisterSampleServer(s *grpc.Server, srv SampleServer)", registerFuncValue.Type())
-	}
-
-	serverValue := reflect.ValueOf(server)
-	if !serverValue.Type().Implements(registerFuncValue.Type().In(1)) {
-		return fmt.Errorf("Incorrect type for server: %v does not implement %v", serverValue.Type(), registerFuncValue.Type().In(1))
-	}
-
-	registerFuncValue.Call([]reflect.Value{
-		reflect.ValueOf(s),
-		serverValue,
-	})
-
-	return nil
 }
