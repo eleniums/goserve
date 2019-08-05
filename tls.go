@@ -4,8 +4,8 @@ import (
 	"crypto/tls"
 )
 
-// TLS will load a cert/key pair and return a TLS config.
-func TLS(certFile, keyFile string) (*tls.Config, error) {
+// NewTLS will load a cert/key pair and return a TLS config with some default configuration.
+func NewTLS(certFile, keyFile string) (*tls.Config, error) {
 	cert, err := tls.LoadX509KeyPair(certFile, keyFile)
 	if err != nil {
 		return nil, err
