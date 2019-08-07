@@ -80,7 +80,7 @@ func (b *Builder) Register(registerFunc interface{}, srv interface{}) *Builder {
 	return b
 }
 
-// WithTLS adds configuration to provide secure communications via Transport Layer Security.
+// WithTLS adds configuration to provide secure communications via TLS (Transport Layer Security).
 func (b *Builder) WithTLS(config *tls.Config) *Builder {
 	creds := credentials.NewTLS(config)
 	b.options = append(b.options, grpc.Creds(creds))
