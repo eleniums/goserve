@@ -25,7 +25,7 @@ func main() {
 	// create the service
 	service := hello.NewService()
 
-	// create the grpc service
+	// create the grpc server
 	server := gsgrpc.New().
 		Register(pb.RegisterHelloServiceServer, service).
 		WithMaxSendMsgSize(*maxSendMsgSize).
