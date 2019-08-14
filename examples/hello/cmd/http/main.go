@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"flag"
 	"log"
 	"net"
@@ -33,9 +34,18 @@ func main() {
 					Name: req.URL.Query().Get("name"),
 				})
 				if err != nil {
-					// TODO
+					http.Error(w, err.Error(), http.StatusInternalServerError)
+					return
 				}
-				// TODO
+
+				r, err := json.Marshal(resp)
+				if err != nil {
+					http.Error(w, err.Error(), http.StatusInternalServerError)
+					return
+				}
+
+				w.Header().Set("Content-Type", "application/json")
+				w.Write(r)
 			default:
 				http.Error(w, http.StatusText(http.StatusMethodNotAllowed), http.StatusMethodNotAllowed)
 			}
