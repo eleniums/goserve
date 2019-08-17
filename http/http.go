@@ -18,7 +18,10 @@ type Builder struct {
 
 // New will create a new gRPC server builder.
 func New() *Builder {
-	return &Builder{}
+	return &Builder{
+		handle:     map[string]http.Handler{},
+		handleFunc: map[string]func(http.ResponseWriter, *http.Request){},
+	}
 }
 
 // Build a gRPC server.
