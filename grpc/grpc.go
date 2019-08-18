@@ -2,8 +2,8 @@ package grpc
 
 import (
 	"crypto/tls"
-	"math"
-	"net"
+	"fmt"
+	"reflect"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
@@ -11,59 +11,113 @@ import (
 	grpc_middleware "github.com/grpc-ecosystem/go-grpc-middleware"
 )
 
-// GRPC contains properties needed to host a gRPC server.
-type GRPC struct {
-	// Server is used to register server handlers.
-	Server *grpc.Server
+const (
+	// DefaultMaxSendMsgSize is the default max send message size, per gRPC
+	DefaultMaxSendMsgSize = 1024 * 1024 * 4
 
-	// TLSConfig stores the TLS configuration if a secure endpoint is desired.
-	TLSConfig *tls.Config
+	// DefaultMaxRecvMsgSize is the default max receive message size, per gRPC
+	DefaultMaxRecvMsgSize = 1024 * 1024 * 4
+)
 
-	// Options is an array of server options for customizing the server further.
-	Options []grpc.ServerOption
-
-	// UnaryInterceptors is an array of unary interceptors. They will be executed in order, from first to last.
-	UnaryInterceptors []grpc.UnaryServerInterceptor
-
-	// StreamInterceptors is an array of stream interceptors. They will be executed in order, from first to last.
-	StreamInterceptors []grpc.StreamServerInterceptor
-
-	// MaxSendMsgSize will change the size of the message that can be sent from the service.
-	MaxSendMsgSize int
-
-	// MaxRecvMsgSize will change the size of the message that can be received by the service.
-	MaxRecvMsgSize int
+// Builder is used to construct a gRPC server.
+type Builder struct {
+	servers            []server
+	options            []grpc.ServerOption
+	unaryInterceptors  []grpc.UnaryServerInterceptor
+	streamInterceptors []grpc.StreamServerInterceptor
 }
 
-// New will create a GRPC instance with default values.
-func New() *GRPC {
-	return &GRPC{
-		MaxSendMsgSize: math.MaxInt32,
-		MaxRecvMsgSize: math.MaxInt32,
-	}
+type server struct {
+	RegisterFunc interface{}
+	Server       interface{}
 }
 
-// Serve will accept incoming connections on the given listener.
-func (g *GRPC) Serve(lis net.Listener) error {
-	return g.Server.Serve(lis)
+// New will create a new gRPC server builder.
+func New() *Builder {
+	return &Builder{}
 }
 
-// Initialize will create a gRPC server based on the properties already set.
-func (g *GRPC) Initialize() {
-	opt := []grpc.ServerOption{
-		grpc.MaxRecvMsgSize(g.MaxRecvMsgSize),
-		grpc.MaxSendMsgSize(g.MaxSendMsgSize),
-		grpc.UnaryInterceptor(grpc_middleware.ChainUnaryServer(g.UnaryInterceptors...)),
-		grpc.StreamInterceptor(grpc_middleware.ChainStreamServer(g.StreamInterceptors...)),
+// Build a gRPC server.
+func (b *Builder) Build() *grpc.Server {
+	if len(b.unaryInterceptors) > 0 {
+		b.options = append(b.options, grpc.UnaryInterceptor(grpc_middleware.ChainUnaryServer(b.unaryInterceptors...)))
 	}
 
-	// determine if TLS should be used
-	if g.TLSConfig != nil {
-		creds := credentials.NewTLS(g.TLSConfig)
-		opt = append(opt, grpc.Creds(creds))
+	if len(b.streamInterceptors) > 0 {
+		b.options = append(b.options, grpc.StreamInterceptor(grpc_middleware.ChainStreamServer(b.streamInterceptors...)))
 	}
 
-	opt = append(opt, g.Options...)
+	s := grpc.NewServer(b.options...)
 
-	g.Server = grpc.NewServer(opt...)
+	for _, v := range b.servers {
+		reflect.ValueOf(v.RegisterFunc).Call([]reflect.Value{
+			reflect.ValueOf(s),
+			reflect.ValueOf(v.Server),
+		})
+	}
+
+	return s
+}
+
+// Register adds a gRPC registration function and an associated server implementation. The registerFunc should be something akin to RegisterSampleServer(s *grpc.Server, srv SampleServer) and srv should be an implementation that satisfies the srv interface in registerFunc.
+func (b *Builder) Register(registerFunc interface{}, srv interface{}) *Builder {
+	var s *grpc.Server
+	registerFuncType := reflect.TypeOf(registerFunc)
+	if registerFuncType.Kind() != reflect.Func || registerFuncType.NumIn() != 2 || registerFuncType.In(0) != reflect.TypeOf(s) || registerFuncType.In(1).Kind() != reflect.Interface {
+		panic(fmt.Errorf("registerFunc is not a grpc registration function: %v, ex: RegisterSampleServer(s *grpc.Server, srv SampleServer)", registerFuncType))
+	}
+
+	serverType := reflect.TypeOf(srv)
+	if !serverType.Implements(registerFuncType.In(1)) {
+		panic(fmt.Errorf("Incorrect type for server: %v does not implement %v", serverType, registerFuncType.In(1)))
+	}
+
+	b.servers = append(b.servers, server{
+		RegisterFunc: registerFunc,
+		Server:       srv,
+	})
+
+	return b
+}
+
+// WithTLS adds configuration to provide secure communications via TLS (Transport Layer Security).
+func (b *Builder) WithTLS(config *tls.Config) *Builder {
+	// do not add tls configuration if none is provided
+	if config == nil {
+		return b
+	}
+
+	creds := credentials.NewTLS(config)
+	b.options = append(b.options, grpc.Creds(creds))
+	return b
+}
+
+// WithOptions adds additional server options for customizing the server further.
+func (b *Builder) WithOptions(options ...grpc.ServerOption) *Builder {
+	b.options = append(b.options, options...)
+	return b
+}
+
+// WithUnaryInterceptors adds unary interceptors to be used by the service. They will be executed in order, from first to last.
+func (b *Builder) WithUnaryInterceptors(interceptors ...grpc.UnaryServerInterceptor) *Builder {
+	b.unaryInterceptors = append(b.unaryInterceptors, interceptors...)
+	return b
+}
+
+// WithStreamInterceptors adds stream interceptors to be used by the service. They will be executed in order, from first to last.
+func (b *Builder) WithStreamInterceptors(interceptors ...grpc.StreamServerInterceptor) *Builder {
+	b.streamInterceptors = append(b.streamInterceptors, interceptors...)
+	return b
+}
+
+// WithMaxRecvMsgSize will change the size of messages that can be received by the service.
+func (b *Builder) WithMaxRecvMsgSize(size int) *Builder {
+	b.options = append(b.options, grpc.MaxRecvMsgSize(size))
+	return b
+}
+
+// WithMaxSendMsgSize will change the size of messages that can be sent from the service.
+func (b *Builder) WithMaxSendMsgSize(size int) *Builder {
+	b.options = append(b.options, grpc.MaxSendMsgSize(size))
+	return b
 }
