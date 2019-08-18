@@ -4,13 +4,11 @@ import (
 	"crypto/tls"
 	"net/http"
 	"time"
-
-	"github.com/justinas/alice"
 )
 
 // Builder is used to construct a gRPC server.
 type Builder struct {
-	middleware []alice.Constructor
+	middleware []func(http.Handler) http.Handler
 	tlsConfig  *tls.Config
 	handle     map[string]http.Handler
 	handleFunc map[string]func(http.ResponseWriter, *http.Request)
@@ -27,7 +25,11 @@ func New() *Builder {
 // Build a gRPC server.
 func (b *Builder) Build() *http.Server {
 	mux := http.NewServeMux()
-	chain := alice.New(b.middleware...).Then(mux)
+
+	var chain http.Handler = mux
+	for i := len(b.middleware) - 1; i >= 0; i-- {
+		chain = b.middleware[i](chain)
+	}
 
 	for p, h := range b.handle {
 		mux.Handle(p, h)
