@@ -1,5 +1,9 @@
 # goserve
-Collection of packages for easily hosting gRPC, HTTP, or other endpoints.
+Collection of packages for hosting gRPC, HTTP, or other endpoints.
+
+**It is generally better to just use the standard libraries directly. Less bloat and more control over configuration. See:**
+- net/http: https://golang.org/pkg/net/http
+- gRPC: https://github.com/grpc/grpc-go
 
 ## Installation
 ```
