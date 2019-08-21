@@ -1,4 +1,7 @@
 # goserve
+
+[![Go Report Card](https://goreportcard.com/badge/github.com/eleniums/goserve)](https://goreportcard.com/report/github.com/eleniums/goserve) [![GoDoc](https://godoc.org/github.com/eleniums/goserve?status.svg)](https://godoc.org/github.com/eleniums/goserve) [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://github.com/eleniums/goserve/blob/master/LICENSE)
+
 Collection of packages for hosting gRPC, HTTP, or other endpoints.
 
 **It is generally better to just use the standard libraries directly. Less bloat and more control over configuration. See:**
